@@ -188,3 +188,58 @@ Port number | Mac address   | IP address
 1   | 01:01:01:01:01:01 | 192.168.1.1/24
 2   | 02:02:02:02:02:02 | 192.168.2.1/24
 ```
+
+##4.その他の機能
+その他あると便利な機能として、ルータのポートとそのIPアドレスに加えて、そのポートに接続されていると思われるデバイスのIPアドレスを表示する機能を実装した。プログラムは以下のようになっている。
+ルーティングテーブルとインターフェースの情報を用いているため、コマンド実行時に必ず接続が維持されているとは限らない。
+しかしながら、ポートごとの情報を取得することで、問題発生時のトラブルシューティングに利用できると考え、この機能を実装した。
+```
+  def dump_status()
+    next_hops = @routing_table.all_next_hop()
+    str = "Port number\t|\tRouter IP address\t|\tconected IP address\n"
+    str += "---------------------------------------------------------------------------\n"
+    Interface.each do |each|
+      str += each.port_number.to_s
+      str += "\t\t|\t"
+      str += each.ip_address.to_s
+      str += "/"
+      str += each.netmask_length.to_s
+      str += "\t\t|\t"
+      next_hops.each do |next_hop|
+        interface = Interface.find_by_prefix(next_hop)
+        if interface.port_number == each.port_number
+          str += next_hop.to_s
+          str += "/"
+          str += each.netmask_length.to_s
+        end
+      end
+      str += "\n"
+    end
+    return str
+  end
+```
+ここで、ルーティングテーブル内に存在するnext_hopの一覧を取得するメソッドをRoutingTableクラスに追加した。
+```
+  def all_next_hop()
+    ret = Array.new()
+    MAX_NETMASK_LENGTH.downto(0).each do |netmask_length|
+      @db[netmask_length].each do |prefix, next_hop|
+        ret << next_hop
+      end
+    end
+    return ret.uniq
+  end
+```
+uniqaを用いることで重複を削除している。コマンドは以下のようになっている。
+```
+$ ./bin/simple_router dump_status
+```
+実行結果は以下のようになった。
+```
+$ ./bin/simple_router dump_status
+Port number	|	Router IP address	|	conected IP address
+---------------------------------------------------------------------------
+1		|	192.168.1.1/24		|	192.168.1.2/24
+2		|	192.168.2.1/24		|	192.168.2.2/24
+```
+
