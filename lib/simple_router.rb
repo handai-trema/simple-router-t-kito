@@ -89,6 +89,68 @@ class SimpleRouter < Trema::Controller
   end
   # rubocop:enable MethodLength
 
+  def dump_routing_table(netmask_length=0)
+    return @routing_table.dump(netmask_length)
+  end
+
+  def add_entry_routing_table(destination, netmask_length, next_hop)
+    options = {
+      :destination => destination,
+      :netmask_length => netmask_length,
+      :next_hop => next_hop
+    }
+    msg = @routing_table.add(options)
+    return msg 
+  end
+
+  def delete_entry_routing_table(destination, netmask_length)
+    options = {
+      :destination => destination,
+      :netmask_length => netmask_length
+    }
+    @routing_table.delete(options)
+  end
+
+  def dump_interface()
+    str = "Port number\t|\tMac address\t\t|\tIP address\n"
+    str += "---------------------------------------------------------------------------\n"
+    Interface.each do |each|
+      str += each.port_number.to_s
+      str += "\t\t|\t"
+      str += each.mac_address.to_s
+      str += "\t|\t"
+      str += each.ip_address.to_s
+      str += "/"
+      str += each.netmask_length.to_s
+      str += "\n"
+    end
+    return str
+  end
+
+  def dump_status()
+    next_hops = @routing_table.all_next_hop()
+    str = "Port number\t|\tRouter IP address\t|\tconected IP address\n"
+    str += "---------------------------------------------------------------------------\n"
+    Interface.each do |each|
+      str += each.port_number.to_s
+      str += "\t\t|\t"
+      str += each.ip_address.to_s
+      str += "/"
+      str += each.netmask_length.to_s
+      str += "\t\t|\t"
+      next_hops.each do |next_hop|
+        interface = Interface.find_by_prefix(next_hop)
+        if interface.port_number == each.port_number
+          str += next_hop.to_s
+          str += "/"
+          str += each.netmask_length.to_s
+        end
+      end
+      str += "\n"
+    end
+    return str
+  end
+
   private
 
   def sent_to_router?(packet_in)
